@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    container_name: juice-shop
+    ports:
+      - "3000:3000"
+    networks:
+      - waf-network
+    restart: always
+    volumes:
+      - juice-shop-data:/app/data
+
+  modsecurity-waf:
+    image: owasp/modsecurity-crs:nginx
+    container_name: modsecurity-waf
+    ports:
+      - "9090:8080"
+    environment:
+      - PROXY_PASS=http://juice-shop:3000
+      - BACKEND=http://juice-shop:3000
+      - PARANOIA=2  # Increased from 1 to 2 for better security
+      - ANOMALY_INBOUND=5  # Lowered threshold to be more strict (was 10)
+      - ANOMALY_OUTBOUND=4  # Lowered threshold to be more strict (was 10)
+      - ERRORLOG=/var/log/nginx/error.log
+      - ACCESSLOG=/var/log/nginx/access.log
+      - LOGLEVEL=debug
+      - MODSEC_RULE_ENGINE=DetectionOnly  # Explicitly enable the rule engine e.x. DetectionOnly, On
+      - MODSEC_AUDIT_LOG_FORMAT=JSON  # Better logging format
+      - MODSEC_AUDIT_LOG_TYPE=Serial  # Enable audit logging
+      - MODSEC_AUDIT_LOG=/var/log/modsecurity/audit.log  # Save audit logs
+      - MODSEC_AUDIT_ENGINE=RelevantOnly  # Log relevant transactions
+      - ENABLE_XSS_PROTECTION=1  # Explicitly enable XSS protection rules
+      - ENFORCE_BODYPROC_URLENCODED=1  # Process URL-encoded payloads
+      - VALIDATE_UTF8_ENCODING=1  # Validate UTF-8 to prevent encoding attacks
+      - BLOCKING_MODE=Off  # Explicitly set to blocking mode
+      - LOGLEVEL=debug
+    depends_on:
+      - juice-shop   
+    networks:
+      - waf-network
+    restart: always
+    volumes:
+      - modsec-logs:/var/log/modsecurity
+  
+  aide-container:
+    build:
+      context: ./aide
+      dockerfile: Dockerfile
+    container_name: aide-container
+    volumes:
+      # Mount the AIDE database persistently
+      - aide-data:/var/lib/aide
+      # Monitor ModSecurity logs and configuration
+      - modsec-logs:/host/var/log/modsecurity:ro
+      - modsec-conf:/host/etc/modsecurity:ro
+      # Monitor Juice Shop data
+      - juice-shop-data:/host/juice-shop-data:ro
+    networks:
+      - waf-network
+    restart: on-failure
+
+
+
+networks:
+  waf-network:
+
+volumes:
+  aide-data:
+  modsec-logs:  
+  modsec-conf: 
+  juice-shop-data:  

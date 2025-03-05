@@ -1,0 +1,13 @@
+# k8s/services/juice-shop-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: juice-shop
+  namespace: juice-shop-waf
+spec:
+  selector:
+    app: juice-shop
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP

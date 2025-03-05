@@ -1,0 +1,28 @@
+# k8s/deployments/juice-shop.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: juice-shop
+  namespace: juice-shop-waf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: juice-shop
+  template:
+    metadata:
+      labels:
+        app: juice-shop
+    spec:
+      containers:
+      - name: juice-shop
+        image: bkimminich/juice-shop:latest
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - name: juice-shop-data
+          mountPath: /juice-shop-data
+      volumes:
+      - name: juice-shop-data
+        persistentVolumeClaim:
+          claimName: juice-shop-data-pvc
