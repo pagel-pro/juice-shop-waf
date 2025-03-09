@@ -68,3 +68,20 @@ data:
     
     # Ignore temporary files
     !/host/var/log/modsecurity/*.tmp
+
+    # Exclude apt commands and related files to reduce false positives
+    !/bin/apt
+    !/bin/apt-get
+    !/bin/apt-cache
+    !/bin/apt-config
+    !/bin/apt-key
+    !/usr/bin/apt
+    !/usr/bin/apt-get
+    !/usr/bin/apt-cache
+    !/usr/bin/apt-config
+    !/usr/bin/apt-key
+    !/var/lib/apt
+    !/var/cache/apt
+    !/var/log/apt
+    !/etc/apt
+    !/usr/lib/apt
