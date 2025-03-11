@@ -1,0 +1,62 @@
+# k8s/deployments/aide-ids.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aide-ids
+  namespace: juice-shop-waf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aide-ids
+  template:
+    metadata:
+      labels:
+        app: aide-ids
+    spec:
+      containers:
+      - name: aide-container
+        image: aide-ids:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: aide-config
+          mountPath: /etc/aide/aide.conf
+          subPath: aide.conf
+        - name: aide-entrypoint
+          mountPath: /entrypoint.sh
+          subPath: entrypoint.sh
+        - name: aide-data   
+          mountPath: /var/lib/aide
+        - name: modsecurity-logs
+          mountPath: /host/var/log/modsecurity
+        - name: modsecurity-config
+          mountPath: /host/etc/modsecurity
+        - name: juice-shop-data
+          mountPath: /host/juice-shop-data
+        command: ["/bin/sh"]
+        args: ["-c", "cp /entrypoint.sh /tmp/entrypoint.sh && chmod +x /tmp/entrypoint.sh && /tmp/entrypoint.sh"]
+      volumes:
+      - name: aide-config
+        configMap:
+          name: aide-config
+          items:
+          - key: aide.conf
+            path: aide.conf
+      - name: aide-entrypoint
+        configMap:
+          name: aide-config
+          items:
+          - key: entrypoint.sh
+            path: entrypoint.sh
+      - name: aide-data     
+        persistentVolumeClaim:
+          claimName: aide-data-pvc
+      - name: modsecurity-logs
+        persistentVolumeClaim:
+          claimName: modsecurity-logs-pvc
+      - name: modsecurity-config
+        persistentVolumeClaim:
+          claimName: modsecurity-config-pvc
+      - name: juice-shop-data
+        persistentVolumeClaim:
+          claimName: juice-shop-data-pvc

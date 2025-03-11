@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aide-config
+  namespace: juice-shop-waf
+data:
+  entrypoint.sh: |
+    #!/bin/bash
+    # Set up log directory
+    LOG_DIR="/var/log/aide"
+    mkdir -p $LOG_DIR
+    
+    # Create AIDE database directory
+    mkdir -p /var/lib/aide
+    
+    # Initialize AIDE database if it doesn't exist
+    if [ ! -f /var/lib/aide/aide.db ]; then
+      echo "\$(date): Initializing AIDE database..." | tee -a $LOG_DIR/aide.log
+      aide --init --config=/etc/aide/aide.conf
+      cp /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      echo "\$(date): AIDE database initialized." | tee -a $LOG_DIR/aide.log
+    fi
+    
+    # Define monitoring function
+    run_check() {
+      echo "\$(date): Running AIDE check..." | tee -a $LOG_DIR/aide.log
+      aide --check --config=/etc/aide/aide.conf | tee -a $LOG_DIR/aide.log
+      
+      # Check the return code
+      if [ $? -ne 0 ]; then
+        echo "\$(date): ALERT - File integrity violations detected!" | tee -a $LOG_DIR/aide.log
+      else
+        echo "\$(date): No integrity violations detected." | tee -a $LOG_DIR/aide.log
+      fi
+    }
+    
+    # Run initial check
+    run_check
+    
+    # Run periodic checks (every 5 minutes)
+    while true; do
+      sleep 300
+      run_check
+    done
+  aide.conf: |
+    # AIDE configuration file for Forensic Readiness Project
+    
+    # Define the database paths
+    database=file:/var/lib/aide/aide.db
+    database_out=file:/var/lib/aide/aide.db.new
+    
+    # Define rule sets
+    # R = p+i+n+u+g+s+m+c+sha1
+    # L = p+i+n+u+g
+    # E = Empty group
+    # >  = Growing logfile p+u+g+i+n+S
+    # NORMAL = R+sha256
+    
+    # Monitor ModSecurity logs
+    /host/var/log/modsecurity/ p+i+n+u+g+s+m+c+sha512
+    /host/var/log/modsecurity/audit\.log$ p+u+g+i+n
+    
+    # Monitor ModSecurity configuration files
+    /host/etc/modsecurity/ p+i+n+u+g+s+m+c+sha512
+    
+    # Monitor Juice Shop data
+    /host/juice-shop-data/ p+i+n+u+g+s+m+c+sha512
+    
+    # Ignore temporary files
+    !/host/var/log/modsecurity/*.tmp
+
+    # Exclude apt commands and related files to reduce false positives
+    !/bin/apt
+    !/bin/apt-get
+    !/bin/apt-cache
+    !/bin/apt-config
+    !/bin/apt-key
+    !/usr/bin/apt
+    !/usr/bin/apt-get
+    !/usr/bin/apt-cache
+    !/usr/bin/apt-config
+    !/usr/bin/apt-key
+    !/var/lib/apt
+    !/var/cache/apt
+    !/var/log/apt
+    !/etc/apt
+    !/usr/lib/apt

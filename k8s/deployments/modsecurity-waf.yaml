@@ -1,0 +1,40 @@
+# k8s/deployments/modsecurity-waf.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: modsecurity-waf
+  namespace: juice-shop-waf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: modsecurity-waf
+  template:
+    metadata:
+      labels:
+        app: modsecurity-waf
+    spec:
+      containers:
+      - name: modsecurity-waf
+        image: owasp/modsecurity-crs:nginx
+        ports:
+        - containerPort: 8090
+        env:
+        - name: BACKEND
+          value: "http://juice-shop:3000"
+        - name: PARANOIA
+          value: "1"
+        - name: ANOMALY_INBOUND
+          value: "10"
+        volumeMounts:
+        - name: modsecurity-logs
+          mountPath: /var/log/modsecurity
+        - name: modsecurity-config
+          mountPath: /etc/modsecurity
+      volumes:
+      - name: modsecurity-logs
+        persistentVolumeClaim:
+          claimName: modsecurity-logs-pvc
+      - name: modsecurity-config
+        persistentVolumeClaim:
+          claimName: modsecurity-config-pvc
