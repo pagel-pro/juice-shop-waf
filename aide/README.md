@@ -75,14 +75,15 @@ AIDE continuously checks for file integrity changes and logs alerts:
 docker compose logs -f aide-container
 ```
 
-### XSS Attack Detection
+### SQLi Attack Detection
 
 ```
+# Prepare logs check
+docker logs -f modsecurity-waf
+
 # Attempt SQLi attack
 curl -v "http://localhost:9090/rest/products/search?q=%27))%20UNION%20SELECT%20id%2Cemail%2Cpassword%2C4%2C5%2C6%2C7%2C8%2C9%20from%20users%20--"
 
-# Check logs
-docker exec -it modsecurity-waf grep -A 10 "injection" /var/log/modsecurity/audit.log
 ```
 
 
