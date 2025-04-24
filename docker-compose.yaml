@@ -23,8 +23,9 @@ services:
       - PARANOIA=2  # Increased from 1 to 2 for better security
       - ANOMALY_INBOUND=5  # Lowered threshold to be more strict (was 10)
       - ANOMALY_OUTBOUND=4  # Lowered threshold to be more strict (was 10)
-      - ERRORLOG=/var/log/nginx/error.log
-      - ACCESSLOG=/var/log/nginx/access.log
+      # Add these to ensure logs are accessible
+      - ACCESSLOG=/var/log/modsecurity/access.log
+      - ERRORLOG=/var/log/modsecurity/error.log
       - LOGLEVEL=debug
       - MODSEC_RULE_ENGINE=DetectionOnly  # Explicitly enable the rule engine e.x. DetectionOnly, On
       - MODSEC_AUDIT_LOG_FORMAT=JSON  # Better logging format
@@ -43,6 +44,12 @@ services:
     restart: always
     volumes:
       - modsec-logs:/var/log/modsecurity
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    # Add this to fix permission issues on container start
+    user: "0:0"  # Run as root to ensure write permissions
+    # Add a command to fix permissions on startup
+    command: sh -c "mkdir -p /var/log/modsecurity && chmod -R 777 /var/log/modsecurity && /docker-entrypoint.sh nginx -g 'daemon off;'"    
+    
   
   aide-container:
     build:
@@ -50,13 +57,18 @@ services:
       dockerfile: Dockerfile
     container_name: aide-container
     volumes:
-      # Mount the AIDE database persistently
       - aide-data:/var/lib/aide
-      # Monitor ModSecurity logs and configuration
+      # Monitor ModSecurity logs and configuration with expanded paths
       - modsec-logs:/host/var/log/modsecurity:ro
-      - modsec-conf:/host/etc/modsecurity:ro
-      # Monitor Juice Shop data
+      - ./modsecurity/modsecurity.d:/host/etc/modsecurity.d:ro
+      - ./modsecurity/modsecurity:/host/etc/modsecurity:ro
+      - ./nginx:/host/etc/nginx:ro
+      # Monitor Juice Shop data with all subdirectories
       - juice-shop-data:/host/juice-shop-data:ro
+    environment:
+      - CHECK_INTERVAL=10
+      - MONITOR_ACCESS=true
+      - DEBUG=true
     networks:
       - waf-network
     restart: on-failure
@@ -68,6 +80,11 @@ networks:
 
 volumes:
   aide-data:
-  modsec-logs:  
+  modsec-logs:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: './logs/modsecurity'
   modsec-conf: 
-  juice-shop-data:  
+  juice-shop-data:
